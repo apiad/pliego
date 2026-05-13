@@ -45,6 +45,29 @@ def test_render_has_two_pages():
     assert len(reader.pages) >= 2
 
 
+def test_render_bulleted_list():
+    from pliego.config import DocConfig
+    from pliego.doc import (
+        BulletList, Document, ListItem, Paragraph, Section, Text,
+    )
+    cfg = DocConfig.from_frontmatter({"title": "x", "date": "2026-05-13"})
+    items = [
+        ListItem(children=[Paragraph(children=[Text(text=f"item {i}")])])
+        for i in (1, 2, 3)
+    ]
+    doc = Document(config=cfg, children=[
+        Section(level=1, title=[Text(text="H")], children=[
+            BulletList(items=items),
+        ]),
+    ])
+    pdf_bytes = render_pdf(doc)
+    reader = pypdf.PdfReader(io.BytesIO(bytes(pdf_bytes)))
+    text = _ws("\n".join(p.extract_text() for p in reader.pages))
+    assert "item 1" in text
+    assert "item 2" in text
+    assert "item 3" in text
+
+
 def test_section_numbering_arabic_arabic_alpha():
     from pliego.config import DocConfig
     from pliego.doc import Document, Paragraph, Section, Text

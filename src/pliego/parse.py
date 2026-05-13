@@ -7,10 +7,12 @@ from mdit_py_plugins.front_matter import front_matter_plugin
 
 from .config import DocConfig
 from .doc import (
+    BulletList,
     Document,
     Emphasis,
     InlineCode,
     Link,
+    ListItem,
     Paragraph,
     Section,
     Strong,
@@ -85,11 +87,75 @@ def _parse_blocks(tokens: list) -> list:
             section_stack[-1].children.append(para)
             i += 3
             continue
+        if t.type == "bullet_list_open":
+            end_i, items = _parse_list_items(tokens, i + 1)
+            bl = BulletList(items=items)
+            if not section_stack:
+                raise NotImplementedError(
+                    "Lists outside a heading are not supported in pliego v0.2."
+                )
+            section_stack[-1].children.append(bl)
+            i = end_i + 1
+            continue
         raise NotImplementedError(
             f"Markdown construct '{t.type}' is not supported in pliego v0.2. "
             "See the roadmap in the design doc."
         )
     return blocks
+
+
+def _parse_list_items(tokens: list, start: int) -> tuple[int, list]:
+    """Parse tokens between bullet_list_open/ordered_list_open and the
+    matching close (exclusive). Returns ``(close_index, [ListItem, ...])``.
+    """
+    items: list = []
+    i = start
+    while i < len(tokens):
+        t = tokens[i]
+        if t.type in ("bullet_list_close", "ordered_list_close"):
+            return i, items
+        if t.type == "list_item_open":
+            depth = 1
+            inner: list = []
+            j = i + 1
+            while j < len(tokens) and depth > 0:
+                tj = tokens[j]
+                if tj.type == "list_item_open":
+                    depth += 1
+                elif tj.type == "list_item_close":
+                    depth -= 1
+                    if depth == 0:
+                        break
+                inner.append(tj)
+                j += 1
+            items.append(ListItem(children=_parse_item_blocks(inner)))
+            i = j + 1
+            continue
+        i += 1
+    return i, items
+
+
+def _parse_item_blocks(tokens: list) -> list:
+    """Parse a list item's inner tokens into Block nodes (Paragraph,
+    nested BulletList/OrderedList, etc.). Tokens are the slice between
+    list_item_open and list_item_close (exclusive)."""
+    out: list = []
+    i = 0
+    while i < len(tokens):
+        t = tokens[i]
+        if t.type == "paragraph_open":
+            inline_token = tokens[i + 1]
+            children = _parse_inline(inline_token)
+            out.append(Paragraph(children=children))
+            i += 3
+            continue
+        if t.type == "bullet_list_open":
+            end_i, items = _parse_list_items(tokens, i + 1)
+            out.append(BulletList(items=items))
+            i = end_i + 1
+            continue
+        i += 1
+    return out
 
 
 def _parse_inline(inline_token) -> list:

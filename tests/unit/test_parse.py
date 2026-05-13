@@ -79,6 +79,52 @@ def test_parses_nested_sections():
     assert h2b.kind == "section" and h2b.level == 2 and h2b.title[0].text == "H2b"
 
 
+def test_parses_bulleted_list():
+    src = dedent("""\
+        ---
+        title: x
+        date: 2026-05-13
+        ---
+
+        # H
+
+        - one
+        - two
+        - three
+    """)
+    doc = parse(src)
+    section = doc.children[0]
+    bl = section.children[0]
+    assert bl.kind == "bullet_list"
+    assert len(bl.items) == 3
+    assert bl.items[0].children[0].children[0].text == "one"
+
+
+def test_parses_nested_bulleted_list():
+    src = dedent("""\
+        ---
+        title: x
+        date: 2026-05-13
+        ---
+
+        # H
+
+        - outer 1
+          - inner 1
+          - inner 2
+        - outer 2
+    """)
+    doc = parse(src)
+    bl = doc.children[0].children[0]
+    assert bl.kind == "bullet_list"
+    assert len(bl.items) == 2
+    first = bl.items[0]
+    nested = [c for c in first.children if c.kind == "bullet_list"]
+    assert len(nested) == 1
+    assert len(nested[0].items) == 2
+    assert nested[0].items[0].children[0].children[0].text == "inner 1"
+
+
 def test_parses_inline_formatting():
     src = dedent("""\
         ---

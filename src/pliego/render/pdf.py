@@ -17,10 +17,12 @@ from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 
 from ..doc import (
+    BulletList,
     Document,
     Emphasis,
     InlineCode,
     Link,
+    ListItem,
     Paragraph,
     Section,
     Strong,
@@ -244,10 +246,33 @@ class _FPDFRenderer:
                 self._render_paragraph(child)
             elif isinstance(child, Section):
                 self._render_section(child)
+            elif isinstance(child, BulletList):
+                self._render_bullet_list(child, depth=0)
             else:
                 raise NotImplementedError(
                     f"Block {type(child).__name__} not supported in v0.2."
                 )
+
+    def _render_bullet_list(self, lst: "BulletList", depth: int = 0) -> None:
+        pdf = self.pdf
+        indent_mm = 6 * (depth + 1)
+        original_l_margin = pdf.l_margin
+        for item in lst.items:
+            # Bullet + indent
+            pdf.set_left_margin(original_l_margin)
+            pdf.set_x(original_l_margin + indent_mm - 4)
+            pdf.set_font(self.body_family, size=self.body_pt)
+            pdf.cell(4, self.body_pt * 0.5, "•")
+            pdf.set_left_margin(original_l_margin + indent_mm)
+            pdf.set_x(original_l_margin + indent_mm)
+            for child in item.children:
+                if isinstance(child, Paragraph):
+                    self._render_inlines(child.children)
+                    pdf.ln(self.body_pt * 0.6)
+                elif isinstance(child, BulletList):
+                    self._render_bullet_list(child, depth + 1)
+        pdf.set_left_margin(original_l_margin)
+        pdf.set_x(original_l_margin)
 
     def _render_paragraph(self, para: Paragraph) -> None:
         self._render_inlines(para.children)
