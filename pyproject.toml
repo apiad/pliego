@@ -1,6 +1,6 @@
 [project]
 name = "pliego"
-version = "0.1.0"
+version = "0.2.0"
 description = "Pure-Python Markdown → PDF renderer. Small, fast, no C bindings."
 readme = "README.md"
 license = { text = "MIT" }
