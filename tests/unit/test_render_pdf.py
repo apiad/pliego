@@ -46,6 +46,46 @@ def test_render_has_two_pages():
     assert len(reader.pages) >= 2
 
 
+def test_hyphenate_helper_inserts_soft_hyphens_for_spanish():
+    from pliego._hyphen import hyphenate
+    out = hyphenate("Esta es una palabra larguísima.", lang="es", min_len=6)
+    # Soft hyphen is U+00AD; the long word should have at least one
+    assert "­" in out
+    # Short words pass through unchanged
+    assert "Esta" in out
+
+
+def test_hyphenate_passthrough_when_lang_unsupported():
+    from pliego._hyphen import hyphenate
+    out = hyphenate("Just a sentence.", lang="zz")
+    assert "­" not in out
+    assert out == "Just a sentence."
+
+
+def test_render_paragraph_with_spanish_uses_hyphenation():
+    """End-to-end: rendering long Spanish prose should preserve the source
+    text under whitespace + hyphen normalization, regardless of where the
+    line breaks happen."""
+    cfg = DocConfig.from_frontmatter({
+        "title": "x", "date": "2026-05-13", "lang": "es",
+    })
+    long_es = (
+        "La arquitectura del clasificador determinista enruta hacia flujos "
+        "especializados, pero escala mal en ancho. " * 4
+    )
+    doc = Document(config=cfg, children=[
+        Section(level=1, title=[Text(text="H")], children=[
+            Paragraph(children=[Text(text=long_es)]),
+        ]),
+    ])
+    pdf_bytes = render_pdf(doc)
+    reader = pypdf.PdfReader(io.BytesIO(bytes(pdf_bytes)))
+    raw = "\n".join(p.extract_text() for p in reader.pages)
+    flat = re.sub(r"[-­\s]+", " ", raw).strip()
+    assert "clasificador determinista" in flat
+    assert "especializados" in flat
+
+
 def test_render_toc_when_enabled():
     cfg = DocConfig.from_frontmatter({
         "title": "Doc",

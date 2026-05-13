@@ -37,6 +37,7 @@ class _PliegoFPDF(_BaseFPDF):
         self.cell(0, 6, f"{label} {self.page_no()}", align="C")
         self.set_text_color(0, 0, 0)
 
+from .._hyphen import hyphenate as _hyphenate
 from ..doc import (
     BlockQuote,
     BulletList,
@@ -188,6 +189,7 @@ class _FPDFRenderer:
         self.pdf.set_auto_page_break(auto=True, margin=margin_y)
         self._setup_fonts()
         self.pdf._footer_family = self.body_family
+        self.lang = cfg.lang
         self.numbering = _compute_numbering(
             doc.children, cfg.pliego.section_numbering
         )
@@ -478,22 +480,23 @@ class _FPDFRenderer:
         for inline in inlines:
             if isinstance(inline, Text):
                 pdf.set_font(self.body_family, style="", size=size)
-                pdf.write(line_h, inline.text)
+                pdf.write(line_h, _hyphenate(inline.text, self.lang))
             elif isinstance(inline, Strong):
                 pdf.set_font(self.body_family, style="B", size=size)
-                pdf.write(line_h, self._inline_text_only_list(inline.children))
+                flat = self._inline_text_only_list(inline.children)
+                pdf.write(line_h, _hyphenate(flat, self.lang))
             elif isinstance(inline, Emphasis):
                 pdf.set_font(self.body_family, style="I", size=size)
-                pdf.write(line_h, self._inline_text_only_list(inline.children))
+                flat = self._inline_text_only_list(inline.children)
+                pdf.write(line_h, _hyphenate(flat, self.lang))
             elif isinstance(inline, Link):
                 pdf.set_font(self.body_family, style="U", size=size)
                 pdf.set_text_color(0, 0, 200)
-                pdf.write(
-                    line_h, self._inline_text_only_list(inline.children),
-                    link=inline.href,
-                )
+                flat = self._inline_text_only_list(inline.children)
+                pdf.write(line_h, _hyphenate(flat, self.lang), link=inline.href)
                 pdf.set_text_color(0, 0, 0)
             elif isinstance(inline, InlineCode):
+                # Don't hyphenate code — keep verbatim
                 pdf.set_font(self.mono_family, style="", size=size * 0.9)
                 pdf.write(line_h, inline.text)
             elif isinstance(inline, Image):
