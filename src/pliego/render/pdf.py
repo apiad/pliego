@@ -30,6 +30,9 @@ from ..doc import (
     Paragraph,
     Section,
     Strong,
+    Table,
+    TableCell,
+    TableRow,
     Text,
 )
 
@@ -260,10 +263,29 @@ class _FPDFRenderer:
                 self._render_horizontal_rule()
             elif isinstance(child, CodeBlock):
                 self._render_code_block(child)
+            elif isinstance(child, Table):
+                self._render_table(child)
             else:
                 raise NotImplementedError(
-                    f"Block {type(child).__name__} not supported in v0.2."
+                    f"Block {type(child).__name__} not supported in v0.3."
                 )
+
+    def _render_table(self, table: "Table") -> None:
+        pdf = self.pdf
+        pdf.ln(self.body_pt * 0.3)
+        pdf.set_font(self.body_family, size=self.body_pt)
+        with pdf.table(
+            text_align="LEFT",
+            line_height=self.body_pt * 0.55,
+        ) as t:
+            header_row = t.row()
+            for cell in table.header.cells:
+                header_row.cell(self._inline_text_only_list(cell.children))
+            for body_row in table.body:
+                row = t.row()
+                for cell in body_row.cells:
+                    row.cell(self._inline_text_only_list(cell.children))
+        pdf.ln(self.body_pt * 0.4)
 
     def _render_horizontal_rule(self) -> None:
         pdf = self.pdf

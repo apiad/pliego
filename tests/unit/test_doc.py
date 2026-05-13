@@ -37,6 +37,25 @@ def test_inline_formatting_types():
     assert c.text == "code"
 
 
+def test_table_types():
+    from pliego.doc import Table, TableCell, TableRow, Text
+    t = Table(
+        header=TableRow(cells=[
+            TableCell(children=[Text(text="A")]),
+            TableCell(children=[Text(text="B")]),
+        ]),
+        body=[
+            TableRow(cells=[
+                TableCell(children=[Text(text="1")]),
+                TableCell(children=[Text(text="2")]),
+            ]),
+        ],
+    )
+    assert t.kind == "table"
+    assert t.header.cells[0].children[0].text == "A"
+    assert t.body[0].cells[1].children[0].text == "2"
+
+
 def test_section_level_range():
     """Sections must be h1–h6."""
     with pytest.raises(ValidationError):

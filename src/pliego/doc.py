@@ -98,6 +98,25 @@ class CodeBlock(BaseModel):
     language: str = ""
 
 
+class TableCell(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["table_cell"] = "table_cell"
+    children: list[Inline]
+
+
+class TableRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["table_row"] = "table_row"
+    cells: list[TableCell]
+
+
+class Table(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["table"] = "table"
+    header: TableRow
+    body: list[TableRow]
+
+
 Block = Annotated[
     Union[
         "Section",
@@ -107,6 +126,7 @@ Block = Annotated[
         BlockQuote,
         HorizontalRule,
         CodeBlock,
+        Table,
     ],
     Field(discriminator="kind"),
 ]
@@ -133,5 +153,8 @@ ListItem.model_rebuild()
 BulletList.model_rebuild()
 OrderedList.model_rebuild()
 BlockQuote.model_rebuild()
+TableCell.model_rebuild()
+TableRow.model_rebuild()
+Table.model_rebuild()
 Section.model_rebuild()
 Document.model_rebuild()

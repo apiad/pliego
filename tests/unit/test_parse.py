@@ -100,6 +100,29 @@ def test_parses_bulleted_list():
     assert bl.items[0].children[0].children[0].text == "one"
 
 
+def test_parses_gfm_table():
+    src = dedent("""\
+        ---
+        title: x
+        date: 2026-05-13
+        ---
+
+        # H
+
+        | Col A | Col B |
+        |-------|-------|
+        | one   | two   |
+        | three | four  |
+    """)
+    doc = parse(src)
+    t = doc.children[0].children[0]
+    assert t.kind == "table"
+    assert len(t.header.cells) == 2
+    assert t.header.cells[0].children[0].text == "Col A"
+    assert len(t.body) == 2
+    assert t.body[1].cells[1].children[0].text == "four"
+
+
 def test_parses_fenced_code_block():
     src = dedent("""\
         ---

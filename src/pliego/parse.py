@@ -20,6 +20,9 @@ from .doc import (
     Paragraph,
     Section,
     Strong,
+    Table,
+    TableCell,
+    TableRow,
     Text,
 )
 
@@ -27,6 +30,7 @@ from .doc import (
 def _make_parser() -> MarkdownIt:
     md = MarkdownIt("commonmark", {"breaks": False, "html": False})
     md.use(front_matter_plugin)
+    md.enable("table")
     return md
 
 
@@ -148,11 +152,61 @@ def _parse_blocks(tokens: list) -> list:
             )
             i += 1
             continue
+        if t.type == "table_open":
+            end_i = _find_close(tokens, i, "table_open", "table_close")
+            inner = tokens[i + 1:end_i]
+            table = _parse_table(inner)
+            if not section_stack:
+                raise NotImplementedError(
+                    "Tables outside a heading are not supported in pliego v0.3."
+                )
+            section_stack[-1].children.append(table)
+            i = end_i + 1
+            continue
         raise NotImplementedError(
             f"Markdown construct '{t.type}' is not supported in pliego v0.2. "
             "See the roadmap in the design doc."
         )
     return blocks
+
+
+def _parse_table(tokens: list) -> Table:
+    """Walk the inner tokens of table_open/table_close into a Table IR."""
+    header: TableRow | None = None
+    body: list[TableRow] = []
+    in_head = False
+    in_body = False
+    current_row_cells: list[TableCell] = []
+    i = 0
+    while i < len(tokens):
+        t = tokens[i]
+        if t.type == "thead_open":
+            in_head, in_body = True, False
+        elif t.type == "thead_close":
+            in_head = False
+        elif t.type == "tbody_open":
+            in_head, in_body = False, True
+        elif t.type == "tbody_close":
+            in_body = False
+        elif t.type == "tr_open":
+            current_row_cells = []
+        elif t.type == "tr_close":
+            row = TableRow(cells=current_row_cells)
+            if in_head:
+                header = row
+            else:
+                body.append(row)
+            current_row_cells = []
+        elif t.type in ("th_open", "td_open"):
+            if i + 1 < len(tokens) and tokens[i + 1].type == "inline":
+                inlines = _parse_inline(tokens[i + 1])
+            else:
+                inlines = []
+            current_row_cells.append(TableCell(children=inlines))
+        i += 1
+    if header is None:
+        header = TableRow(cells=[])
+    return Table(header=header, body=body)
 
 
 def _find_close(tokens: list, open_i: int, open_type: str, close_type: str) -> int:
