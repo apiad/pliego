@@ -16,7 +16,16 @@ from pathlib import Path
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 
-from ..doc import Document, Paragraph, Section, Text
+from ..doc import (
+    Document,
+    Emphasis,
+    InlineCode,
+    Link,
+    Paragraph,
+    Section,
+    Strong,
+    Text,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -102,10 +111,19 @@ class _FPDFRenderer:
             self.pdf.add_font(
                 "body", style="I", fname=str(font_dir / "DejaVuSans-Oblique.ttf")
             )
+            self.pdf.add_font(
+                "body", style="BI",
+                fname=str(font_dir / "DejaVuSans-BoldOblique.ttf"),
+            )
+            self.pdf.add_font(
+                "mono", style="", fname=str(font_dir / "DejaVuSansMono.ttf")
+            )
             self.body_family = "body"
+            self.mono_family = "mono"
         else:
-            # Fallback: core helvetica. Non-ASCII text may render incorrectly.
+            # Fallback: core fonts. Non-ASCII text may render incorrectly.
             self.body_family = "helvetica"
+            self.mono_family = "courier"
         self.pdf.set_font(self.body_family, size=self.body_pt)
 
     def build(self) -> bytes:
@@ -152,10 +170,11 @@ class _FPDFRenderer:
 
     def _render_section(self, section: Section) -> None:
         pdf = self.pdf
-        pdf.add_page()  # v0.1: each top-level section on its own page
+        if section.level == 1:
+            pdf.add_page()
         size = self.body_pt * (2.2 - 0.2 * section.level)
         pdf.set_font(self.body_family, style="B", size=size)
-        title_text = _flatten_inlines(section.title)
+        title_text = self._inline_text_only_list(section.title)
         pdf.multi_cell(
             0, 10, title_text,
             new_x=XPos.LMARGIN, new_y=YPos.NEXT,
@@ -166,33 +185,62 @@ class _FPDFRenderer:
             if isinstance(child, Paragraph):
                 self._render_paragraph(child)
             elif isinstance(child, Section):
-                raise NotImplementedError(
-                    "Nested sections not supported in v0.1."
-                )
+                self._render_section(child)
             else:
                 raise NotImplementedError(
-                    f"Block {type(child).__name__} not supported in v0.1."
+                    f"Block {type(child).__name__} not supported in v0.2."
                 )
 
     def _render_paragraph(self, para: Paragraph) -> None:
-        text = _flatten_inlines(para.children)
-        self.pdf.multi_cell(
-            0, self.body_pt * 0.45, text,
-            new_x=XPos.LMARGIN, new_y=YPos.NEXT,
-        )
-        self.pdf.ln(self.body_pt * 0.3)
+        self._render_inlines(para.children)
+        self.pdf.ln(self.body_pt * 0.8)
 
+    def _render_inlines(
+        self, inlines: list, base_size: float | None = None
+    ) -> None:
+        """Write inline content via fpdf2's write(), toggling font style for
+        Strong, Emphasis, Link, InlineCode."""
+        size = base_size or self.body_pt
+        pdf = self.pdf
+        line_h = size * 0.5
+        for inline in inlines:
+            if isinstance(inline, Text):
+                pdf.set_font(self.body_family, style="", size=size)
+                pdf.write(line_h, inline.text)
+            elif isinstance(inline, Strong):
+                pdf.set_font(self.body_family, style="B", size=size)
+                pdf.write(line_h, self._inline_text_only_list(inline.children))
+            elif isinstance(inline, Emphasis):
+                pdf.set_font(self.body_family, style="I", size=size)
+                pdf.write(line_h, self._inline_text_only_list(inline.children))
+            elif isinstance(inline, Link):
+                pdf.set_font(self.body_family, style="U", size=size)
+                pdf.set_text_color(0, 0, 200)
+                pdf.write(
+                    line_h, self._inline_text_only_list(inline.children),
+                    link=inline.href,
+                )
+                pdf.set_text_color(0, 0, 0)
+            elif isinstance(inline, InlineCode):
+                pdf.set_font(self.mono_family, style="", size=size * 0.9)
+                pdf.write(line_h, inline.text)
+            else:
+                raise NotImplementedError(
+                    f"Inline {type(inline).__name__} not supported in v0.2."
+                )
+        # Restore body font for whatever comes next
+        pdf.set_font(self.body_family, style="", size=self.body_pt)
 
-def _flatten_inlines(inlines: list) -> str:
-    parts: list[str] = []
-    for inline in inlines:
-        if isinstance(inline, Text):
-            parts.append(inline.text)
-        else:
-            raise NotImplementedError(
-                f"Inline {type(inline).__name__} not supported in v0.1."
-            )
-    return "".join(parts)
+    def _inline_text_only(self, inline) -> str:
+        """Flatten an inline node to plain text (no formatting)."""
+        if isinstance(inline, (Text, InlineCode)):
+            return inline.text
+        if hasattr(inline, "children"):
+            return "".join(self._inline_text_only(c) for c in inline.children)
+        return ""
+
+    def _inline_text_only_list(self, inlines: list) -> str:
+        return "".join(self._inline_text_only(i) for i in inlines)
 
 
 # ---------------------------------------------------------------------------

@@ -33,6 +33,26 @@ def test_parses_frontmatter_and_h1_and_paragraph():
     assert para.children[0].text == "Este es un párrafo."
 
 
+def test_parses_inline_formatting():
+    src = dedent("""\
+        ---
+        title: x
+        date: 2026-05-13
+        ---
+
+        # Heading
+
+        Plain **bold** and *italic* with [link](https://example.com) and `code`.
+    """)
+    doc = parse(src)
+    para = doc.children[0].children[0]
+    kinds = [type(c).__name__ for c in para.children]
+    assert "Strong" in kinds
+    assert "Emphasis" in kinds
+    assert "Link" in kinds
+    assert "InlineCode" in kinds
+
+
 def test_rejects_input_without_frontmatter():
     """v0.1: frontmatter is required (title + date)."""
     with pytest.raises(ValueError, match="frontmatter"):

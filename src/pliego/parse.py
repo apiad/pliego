@@ -6,7 +6,16 @@ from markdown_it import MarkdownIt
 from mdit_py_plugins.front_matter import front_matter_plugin
 
 from .config import DocConfig
-from .doc import Document, Paragraph, Section, Text
+from .doc import (
+    Document,
+    Emphasis,
+    InlineCode,
+    Link,
+    Paragraph,
+    Section,
+    Strong,
+    Text,
+)
 
 
 def _make_parser() -> MarkdownIt:
@@ -77,16 +86,58 @@ def _parse_blocks(tokens: list) -> list:
     return blocks
 
 
-def _parse_inline(inline_token) -> list[Text]:
-    """v0.1: inline content is a single text run. Inline formatting
-    (bold, italic, links, code) is plan 2.
+def _parse_inline(inline_token) -> list:
+    """Walk markdown-it-py inline children into IR Inline nodes.
+
+    Supports text, strong, emphasis, link, inline code, and soft breaks
+    (rendered as spaces).
     """
-    parts: list[str] = []
+    out: list = []
+    # stack[i] = (kind, parent_list_we_were_appending_to, attrs)
+    stack: list[tuple[str, list, dict]] = []
+    current = out
     for child in inline_token.children or []:
-        if child.type == "text":
-            parts.append(child.content)
+        t = child.type
+        if t == "text":
+            current.append(Text(text=child.content))
+        elif t == "strong_open":
+            new_children: list = []
+            stack.append(("strong", current, {}))
+            current = new_children
+        elif t == "strong_close":
+            kind, parent, _ = stack.pop()
+            assert kind == "strong"
+            parent.append(Strong(children=current))
+            current = parent
+        elif t == "em_open":
+            new_children = []
+            stack.append(("em", current, {}))
+            current = new_children
+        elif t == "em_close":
+            kind, parent, _ = stack.pop()
+            assert kind == "em"
+            parent.append(Emphasis(children=current))
+            current = parent
+        elif t == "link_open":
+            href = ""
+            attrs = child.attrs or {}
+            for k, v in attrs.items():
+                if k == "href":
+                    href = v
+            new_children = []
+            stack.append(("link", current, {"href": href}))
+            current = new_children
+        elif t == "link_close":
+            kind, parent, attrs = stack.pop()
+            assert kind == "link"
+            parent.append(Link(href=attrs["href"], children=current))
+            current = parent
+        elif t == "code_inline":
+            current.append(InlineCode(text=child.content))
+        elif t == "softbreak":
+            current.append(Text(text=" "))
         else:
             raise NotImplementedError(
-                f"Inline construct '{child.type}' is not supported in pliego v0.1."
+                f"Inline construct '{t}' is not supported in pliego v0.2."
             )
-    return [Text(text="".join(parts))]
+    return out

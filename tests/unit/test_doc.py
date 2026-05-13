@@ -25,6 +25,18 @@ def test_minimal_document():
     assert doc.children[0].children[0].children[0].text == "Hello."
 
 
+def test_inline_formatting_types():
+    from pliego.doc import Emphasis, InlineCode, Link, Strong, Text
+    s = Strong(children=[Text(text="bold")])
+    e = Emphasis(children=[Text(text="italic")])
+    l = Link(href="https://example.com", children=[Text(text="link")])
+    c = InlineCode(text="code")
+    assert s.children[0].text == "bold"
+    assert e.children[0].text == "italic"
+    assert l.href == "https://example.com"
+    assert c.text == "code"
+
+
 def test_section_level_range():
     """Sections must be h1–h6."""
     with pytest.raises(ValidationError):
