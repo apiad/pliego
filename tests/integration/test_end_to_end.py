@@ -17,6 +17,7 @@ def _normalize_ws(s: str) -> str:
 
 FIXTURE = Path(__file__).parent / "fixtures" / "minimal_es.md"
 STRUCTURED_FIXTURE = Path(__file__).parent / "fixtures" / "structured_es.md"
+ECUADOR_FIXTURE = Path(__file__).parent / "fixtures" / "ecuador-report.md"
 
 
 def test_renders_minimal_spanish_report(tmp_path: Path):
@@ -76,3 +77,34 @@ def test_renders_structured_spanish_document(tmp_path: Path):
     assert "Hola, {nombre}" in full_text
     # Closing line
     assert "Fin del documento" in full_text
+
+
+def test_renders_ecuador_architecture_report(tmp_path: Path):
+    """The v1 'replace your Quarto' bar: render a real Spanish technical
+    report from the workspace end-to-end. Sanitized copy strips Quarto
+    callouts and section 10 (out-of-scope agent instructions)."""
+    src = tmp_path / "report.md"
+    shutil.copy(ECUADOR_FIXTURE, src)
+
+    rc = main(["render", str(src)])
+    assert rc == 0
+
+    pdf_path = tmp_path / "report.pdf"
+    assert pdf_path.exists()
+    reader = pypdf.PdfReader(io.BytesIO(pdf_path.read_bytes()))
+    assert len(reader.pages) >= 8  # cover + ToC + many body pages
+
+    full_text = _normalize_ws("\n".join(p.extract_text() for p in reader.pages))
+
+    # Cover
+    assert "Propuesta de evolución arquitectónica" in full_text
+    assert "Chatbot UBE" in full_text
+    # ToC
+    assert "Índice" in full_text
+    # Manually-numbered section titles (section-numbering disabled in the fixture)
+    assert "1. Resumen ejecutivo" in full_text
+    assert "2. Contexto y alcance del análisis" in full_text
+    assert "3. Análisis crítico" in full_text
+    # Body content
+    assert "clasificador de intenciones" in full_text
+    assert "asesoría técnica" in full_text

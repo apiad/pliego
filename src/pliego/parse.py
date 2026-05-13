@@ -92,20 +92,14 @@ def _parse_blocks(tokens: list) -> list:
             # Promote a paragraph that is just one Image to a Figure
             if len(children) == 1 and isinstance(children[0], Image):
                 img = children[0]
-                if not section_stack:
-                    raise NotImplementedError(
-                        "Figures outside a heading are not supported in pliego v0.3."
-                    )
+                _ensure_preamble(blocks, section_stack)
                 section_stack[-1].children.append(
                     Figure(src=img.src, alt=img.alt)
                 )
                 i += 3
                 continue
             para = Paragraph(children=children)
-            if not section_stack:
-                raise NotImplementedError(
-                    "Paragraphs outside a heading are not supported in pliego v0.2."
-                )
+            _ensure_preamble(blocks, section_stack)
             section_stack[-1].children.append(para)
             i += 3
             continue
@@ -182,6 +176,17 @@ def _parse_blocks(tokens: list) -> list:
             "See the roadmap in the design doc."
         )
     return blocks
+
+
+def _ensure_preamble(blocks: list, section_stack: list) -> None:
+    """If no section is open, create a synthetic level-1 untitled 'preamble'
+    section so top-level content (text before the first heading) has a
+    home. Mutates both arguments in place."""
+    if section_stack:
+        return
+    preamble = Section(level=1, title=[], children=[])
+    blocks.append(preamble)
+    section_stack.append(preamble)
 
 
 def _parse_table(tokens: list) -> Table:

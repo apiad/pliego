@@ -298,16 +298,16 @@ class _FPDFRenderer:
         title_text = self._inline_text_only_list(section.title)
         number = self.numbering.get(id(section))
         full_title = f"{number}. {title_text}" if number else title_text
-        # Register for ToC + PDF outline. fpdf2's start_section level is
-        # 0-indexed (h1 -> 0). Cheap to call even when toc is off.
-        pdf.start_section(full_title, level=section.level - 1)
-        size = self.body_pt * (2.2 - 0.2 * section.level)
-        pdf.set_font(self.body_family, style="B", size=size)
-        pdf.multi_cell(
-            0, 10, full_title,
-            new_x=XPos.LMARGIN, new_y=YPos.NEXT,
-        )
-        pdf.ln(2)
+        # Untitled preamble section: skip the heading entirely.
+        if full_title:
+            pdf.start_section(full_title, level=section.level - 1)
+            size = self.body_pt * (2.2 - 0.2 * section.level)
+            pdf.set_font(self.body_family, style="B", size=size)
+            pdf.multi_cell(
+                0, 10, full_title,
+                new_x=XPos.LMARGIN, new_y=YPos.NEXT,
+            )
+            pdf.ln(2)
         pdf.set_font(self.body_family, size=self.body_pt)
         for child in section.children:
             if isinstance(child, Paragraph):

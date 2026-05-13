@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.3.0] — 2026-05-13
+
+### Added
+- GFM tables (header + body, equal column widths).
+- Block-level figures (paragraph-with-only-an-image promoted to Figure;
+  centered at 60% body width with italic caption from alt text).
+- Inline images render as `[alt]` italic placeholders within running text.
+- Table of contents — auto-generated, two-pass fpdf2 output, honors
+  `pliego.toc` + `pliego.toc-depth`. Localized header (Índice / Contents).
+- Page numbers in footer (skipped on cover). Localized label (Página / Page).
+  Disable via `pliego.page-numbers: false`.
+- Spanish hyphenation via pyphen — long words get soft-hyphen breaks at
+  wrap points. Supports es/en/pt/fr/de/it/ca/gl; passthrough otherwise.
+- Quarto → pliego migration guide (`docs/migrating-from-quarto.md`).
+- Ecuador architecture report integration test: a real ~80KB Spanish
+  technical report renders end-to-end as a 31-page PDF (cover + ToC +
+  body + glossary table + page numbers).
+- Top-level paragraphs / figures (content before the first heading) are
+  now allowed; they ride a synthetic untitled preamble section.
+
+### Changed
+- Renderer now uses a `_PliegoFPDF` subclass to hook the footer.
+- `start_section()` is now called for every heading (gives PDF outline +
+  ToC entries for free, regardless of whether ToC is rendered).
+- New dependency: `pyphen>=0.14`.
+
 ## [0.2.0] — 2026-05-13
 
 ### Added
