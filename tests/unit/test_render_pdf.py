@@ -46,6 +46,25 @@ def test_render_has_two_pages():
     assert len(reader.pages) >= 2
 
 
+def test_render_includes_page_numbers_in_body_not_cover():
+    cfg = DocConfig.from_frontmatter({
+        "title": "Doc",
+        "date": "2026-05-13",
+        "lang": "es",
+    })
+    doc = Document(config=cfg, children=[
+        Section(level=1, title=[Text(text="Sección")], children=[
+            Paragraph(children=[Text(text="Cuerpo.")]),
+        ]),
+    ])
+    pdf_bytes = render_pdf(doc)
+    reader = pypdf.PdfReader(io.BytesIO(bytes(pdf_bytes)))
+    page1 = _ws(reader.pages[0].extract_text())
+    page2 = _ws(reader.pages[1].extract_text())
+    assert "Página" not in page1
+    assert "Página 2" in page2
+
+
 def test_render_figure():
     from pliego.doc import Figure
     cfg = DocConfig.from_frontmatter({"title": "x", "date": "2026-05-13"})

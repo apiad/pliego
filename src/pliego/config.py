@@ -23,6 +23,7 @@ class PliegoOptions(BaseModel):
     toc: bool = False
     toc_depth: int = Field(default=2, alias="toc-depth")
     section_numbering: str = Field(default="1.1.a", alias="section-numbering")
+    page_numbers: bool = Field(default=True, alias="page-numbers")
 
 
 class DocConfig(BaseModel):

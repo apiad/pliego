@@ -58,6 +58,20 @@ def test_date_coerced_from_yaml_date_object():
     assert cfg.date == "2026-05-13"
 
 
+def test_page_numbers_default_true():
+    cfg = DocConfig.from_frontmatter({"title": "x", "date": "2026-05-13"})
+    assert cfg.pliego.page_numbers is True
+
+
+def test_page_numbers_can_be_disabled():
+    cfg = DocConfig.from_frontmatter({
+        "title": "x",
+        "date": "2026-05-13",
+        "pliego": {"page-numbers": False},
+    })
+    assert cfg.pliego.page_numbers is False
+
+
 def test_unknown_top_level_key_passes_through_to_metadata():
     cfg = DocConfig.from_frontmatter({
         "title": "x",

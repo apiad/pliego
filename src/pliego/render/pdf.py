@@ -13,8 +13,29 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from fpdf import FPDF
+from fpdf import FPDF as _BaseFPDF
 from fpdf.enums import XPos, YPos
+
+
+class _PliegoFPDF(_BaseFPDF):
+    """FPDF subclass with a localized page-number footer."""
+
+    def __init__(self, *args, page_numbers: bool = True, lang: str = "en",
+                 **kwargs):
+        super().__init__(*args, **kwargs)
+        self._show_page_numbers = page_numbers
+        self._footer_lang = lang
+        self._footer_family = "helvetica"
+
+    def footer(self) -> None:
+        if not self._show_page_numbers or self.page_no() == 1:
+            return
+        label = "Página" if self._footer_lang.startswith("es") else "Page"
+        self.set_y(-12)
+        self.set_font(self._footer_family, size=8)
+        self.set_text_color(120, 120, 120)
+        self.cell(0, 6, f"{label} {self.page_no()}", align="C")
+        self.set_text_color(0, 0, 0)
 
 from ..doc import (
     BlockQuote,
@@ -158,10 +179,15 @@ class _FPDFRenderer:
         margin_y = _to_mm(cfg.pliego.margin.y)
         papersize = cfg.pliego.papersize.upper()
 
-        self.pdf = FPDF(format=papersize, unit="mm")
+        self.pdf = _PliegoFPDF(
+            format=papersize, unit="mm",
+            page_numbers=cfg.pliego.page_numbers,
+            lang=cfg.lang,
+        )
         self.pdf.set_margins(left=margin_x, top=margin_y, right=margin_x)
         self.pdf.set_auto_page_break(auto=True, margin=margin_y)
         self._setup_fonts()
+        self.pdf._footer_family = self.body_family
         self.numbering = _compute_numbering(
             doc.children, cfg.pliego.section_numbering
         )
