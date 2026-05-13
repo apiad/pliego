@@ -45,6 +45,27 @@ def test_render_has_two_pages():
     assert len(reader.pages) >= 2
 
 
+def test_render_nested_sections_no_extra_page_breaks():
+    """Only h1 starts a new page; h2/h3 flow inline."""
+    from pliego.config import DocConfig
+    from pliego.doc import Document, Paragraph, Section, Text
+    cfg = DocConfig.from_frontmatter({"title": "x", "date": "2026-05-13"})
+    h2 = Section(level=2, title=[Text(text="H2")], children=[
+        Paragraph(children=[Text(text="P2.")]),
+    ])
+    h1 = Section(level=1, title=[Text(text="H1")], children=[
+        Paragraph(children=[Text(text="P1.")]),
+        h2,
+    ])
+    doc = Document(config=cfg, children=[h1])
+    pdf_bytes = render_pdf(doc)
+    reader = pypdf.PdfReader(io.BytesIO(bytes(pdf_bytes)))
+    # Cover + h1 page (h2 flows on same page) = 2 pages
+    assert len(reader.pages) == 2
+    text = _ws("\n".join(p.extract_text() for p in reader.pages))
+    assert "H1" in text and "H2" in text and "P1." in text and "P2." in text
+
+
 def test_render_inline_formatting():
     from pliego.config import DocConfig
     from pliego.doc import (

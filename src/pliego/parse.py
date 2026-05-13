@@ -46,42 +46,48 @@ def parse(source: str) -> Document:
 
 
 def _parse_blocks(tokens: list) -> list:
-    """Walk top-level tokens into Sections (each heading opens a Section)
-    and Paragraphs attached to the current section.
+    """Walk top-level tokens into a nested Section tree.
 
-    v0.1: paragraphs must appear inside a heading; top-level paragraphs
-    raise NotImplementedError.
+    Each heading opens a new Section. Headings at level <= the deepest
+    open section's level close opened sections back to the heading's
+    parent level before opening the new one. Paragraphs attach to the
+    deepest open section; a paragraph before any heading raises
+    NotImplementedError.
     """
     blocks: list = []
+    section_stack: list[Section] = []
+
+    def container() -> list:
+        return section_stack[-1].children if section_stack else blocks
+
     i = 0
-    current_section: Section | None = None
     while i < len(tokens):
         t = tokens[i]
         if t.type == "heading_open":
-            level = int(t.tag[1])  # 'h1' → 1
+            level = int(t.tag[1])
             inline_token = tokens[i + 1]
             title_inlines = _parse_inline(inline_token)
-            i += 3  # heading_open, inline, heading_close
-            current_section = Section(
-                level=level, title=title_inlines, children=[]
-            )
-            blocks.append(current_section)
+            i += 3
+            while section_stack and section_stack[-1].level >= level:
+                section_stack.pop()
+            new_section = Section(level=level, title=title_inlines, children=[])
+            container().append(new_section)
+            section_stack.append(new_section)
             continue
         if t.type == "paragraph_open":
             inline_token = tokens[i + 1]
             children = _parse_inline(inline_token)
             para = Paragraph(children=children)
-            if current_section is None:
+            if not section_stack:
                 raise NotImplementedError(
-                    "Paragraphs outside a heading are not supported in v0.1."
+                    "Paragraphs outside a heading are not supported in pliego v0.2."
                 )
-            current_section.children.append(para)
-            i += 3  # paragraph_open, inline, paragraph_close
+            section_stack[-1].children.append(para)
+            i += 3
             continue
         raise NotImplementedError(
-            f"Markdown construct '{t.type}' is not supported in pliego v0.1. "
-            "See the roadmap in the design doc "
-            "(2026-05-13-pliego-design.md)."
+            f"Markdown construct '{t.type}' is not supported in pliego v0.2. "
+            "See the roadmap in the design doc."
         )
     return blocks
 
