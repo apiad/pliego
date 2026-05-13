@@ -1,7 +1,12 @@
 """PDF renderer — IR → bytes."""
 import io
+import re
 
 import pypdf
+
+
+def _ws(s: str) -> str:
+    return re.sub(r"\s+", " ", s).strip()
 
 from pliego.config import DocConfig
 from pliego.doc import Document, Paragraph, Section, Text
@@ -43,7 +48,7 @@ def test_render_has_two_pages():
 def test_render_contains_title_and_body_text():
     pdf_bytes = render_pdf(_make_minimal_doc())
     reader = pypdf.PdfReader(io.BytesIO(bytes(pdf_bytes)))
-    full_text = "\n".join(p.extract_text() for p in reader.pages)
+    full_text = _ws("\n".join(p.extract_text() for p in reader.pages))
     assert "Hola" in full_text
     assert "Introducción" in full_text
     assert "Hola mundo." in full_text
