@@ -48,6 +48,16 @@ def test_unknown_pliego_key_rejected():
         })
 
 
+def test_date_coerced_from_yaml_date_object():
+    """YAML parses unquoted YYYY-MM-DD as datetime.date; we coerce to ISO string."""
+    import datetime
+    cfg = DocConfig.from_frontmatter({
+        "title": "x",
+        "date": datetime.date(2026, 5, 13),
+    })
+    assert cfg.date == "2026-05-13"
+
+
 def test_unknown_top_level_key_passes_through_to_metadata():
     cfg = DocConfig.from_frontmatter({
         "title": "x",

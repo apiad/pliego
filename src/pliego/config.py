@@ -1,9 +1,10 @@
 """DocConfig — typed frontmatter → renderer config."""
 from __future__ import annotations
 
+import datetime as _dt
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Margin(BaseModel):
@@ -34,6 +35,14 @@ class DocConfig(BaseModel):
     lang: str = "en"
     pliego: PliegoOptions = Field(default_factory=PliegoOptions)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("date", mode="before")
+    @classmethod
+    def _coerce_date(cls, v: Any) -> str:
+        """Accept str, date, or datetime; normalize to ISO 8601 string."""
+        if isinstance(v, (_dt.date, _dt.datetime)):
+            return v.isoformat()[:10]
+        return v
 
     @classmethod
     def from_frontmatter(cls, data: dict[str, Any]) -> "DocConfig":
