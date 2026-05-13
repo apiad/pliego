@@ -100,6 +100,27 @@ def test_parses_bulleted_list():
     assert bl.items[0].children[0].children[0].text == "one"
 
 
+def test_parses_block_quote():
+    src = dedent("""\
+        ---
+        title: x
+        date: 2026-05-13
+        ---
+
+        # H
+
+        > Una cita en español.
+        > Segunda línea.
+    """)
+    doc = parse(src)
+    bq = doc.children[0].children[0]
+    assert bq.kind == "block_quote"
+    assert len(bq.children) >= 1
+    assert bq.children[0].kind == "paragraph"
+    text = bq.children[0].children[0].text
+    assert "cita en español" in text
+
+
 def test_parses_ordered_list():
     src = dedent("""\
         ---

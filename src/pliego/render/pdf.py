@@ -17,6 +17,7 @@ from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 
 from ..doc import (
+    BlockQuote,
     BulletList,
     Document,
     Emphasis,
@@ -251,10 +252,40 @@ class _FPDFRenderer:
                 self._render_bullet_list(child, depth=0)
             elif isinstance(child, OrderedList):
                 self._render_ordered_list(child, depth=0)
+            elif isinstance(child, BlockQuote):
+                self._render_block_quote(child)
             else:
                 raise NotImplementedError(
                     f"Block {type(child).__name__} not supported in v0.2."
                 )
+
+    def _render_block_quote(self, bq: "BlockQuote") -> None:
+        pdf = self.pdf
+        indent_mm = 8
+        original_l_margin = pdf.l_margin
+        y_start = pdf.get_y()
+        pdf.set_left_margin(original_l_margin + indent_mm)
+        pdf.set_x(original_l_margin + indent_mm)
+        for child in bq.children:
+            if isinstance(child, Paragraph):
+                pdf.set_font(self.body_family, style="I", size=self.body_pt)
+                self._render_inlines(child.children)
+                pdf.ln(self.body_pt * 0.8)
+            elif isinstance(child, BlockQuote):
+                self._render_block_quote(child)
+            elif isinstance(child, BulletList):
+                self._render_bullet_list(child, depth=0)
+            elif isinstance(child, OrderedList):
+                self._render_ordered_list(child, depth=0)
+        y_end = pdf.get_y()
+        # Vertical rule on the left
+        pdf.set_draw_color(120, 120, 120)
+        pdf.set_line_width(0.6)
+        rule_x = original_l_margin + 2
+        pdf.line(rule_x, y_start, rule_x, max(y_end - 1, y_start + 1))
+        pdf.set_left_margin(original_l_margin)
+        pdf.set_x(original_l_margin)
+        pdf.set_font(self.body_family, style="", size=self.body_pt)
 
     def _render_bullet_list(self, lst: "BulletList", depth: int = 0) -> None:
         self._render_list_generic(lst.items, depth, marker=lambda i: "•",

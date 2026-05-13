@@ -7,6 +7,7 @@ from mdit_py_plugins.front_matter import front_matter_plugin
 
 from .config import DocConfig
 from .doc import (
+    BlockQuote,
     BulletList,
     Document,
     Emphasis,
@@ -112,11 +113,38 @@ def _parse_blocks(tokens: list) -> list:
             section_stack[-1].children.append(ol)
             i = end_i + 1
             continue
+        if t.type == "blockquote_open":
+            end_i = _find_close(tokens, i, "blockquote_open", "blockquote_close")
+            inner = tokens[i + 1:end_i]
+            bq = BlockQuote(children=_parse_item_blocks(inner))
+            if not section_stack:
+                raise NotImplementedError(
+                    "BlockQuote outside a heading is not supported in pliego v0.2."
+                )
+            section_stack[-1].children.append(bq)
+            i = end_i + 1
+            continue
         raise NotImplementedError(
             f"Markdown construct '{t.type}' is not supported in pliego v0.2. "
             "See the roadmap in the design doc."
         )
     return blocks
+
+
+def _find_close(tokens: list, open_i: int, open_type: str, close_type: str) -> int:
+    """Find the matching close-token index for the open at ``tokens[open_i]``,
+    handling nesting."""
+    depth = 1
+    j = open_i + 1
+    while j < len(tokens):
+        if tokens[j].type == open_type:
+            depth += 1
+        elif tokens[j].type == close_type:
+            depth -= 1
+            if depth == 0:
+                return j
+        j += 1
+    raise ValueError(f"unclosed {open_type}")
 
 
 def _parse_list_items(tokens: list, start: int) -> tuple[int, list]:
@@ -172,6 +200,12 @@ def _parse_item_blocks(tokens: list) -> list:
         if t.type == "ordered_list_open":
             end_i, items = _parse_list_items(tokens, i + 1)
             out.append(OrderedList(items=items))
+            i = end_i + 1
+            continue
+        if t.type == "blockquote_open":
+            end_i = _find_close(tokens, i, "blockquote_open", "blockquote_close")
+            inner = tokens[i + 1:end_i]
+            out.append(BlockQuote(children=_parse_item_blocks(inner)))
             i = end_i + 1
             continue
         i += 1
