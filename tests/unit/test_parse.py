@@ -100,6 +100,51 @@ def test_parses_bulleted_list():
     assert bl.items[0].children[0].children[0].text == "one"
 
 
+def test_parses_fenced_code_block():
+    src = dedent("""\
+        ---
+        title: x
+        date: 2026-05-13
+        ---
+
+        # H
+
+        Aquí va código:
+
+        ```python
+        def hola(n):
+            return f"Hola, {n}!"
+        ```
+    """)
+    doc = parse(src)
+    blocks = doc.children[0].children
+    code = [b for b in blocks if b.kind == "code_block"]
+    assert len(code) == 1
+    assert code[0].language == "python"
+    assert "def hola(n)" in code[0].text
+
+
+def test_parses_horizontal_rule():
+    src = dedent("""\
+        ---
+        title: x
+        date: 2026-05-13
+        ---
+
+        # H
+
+        Antes.
+
+        ---
+
+        Después.
+    """)
+    doc = parse(src)
+    kids = doc.children[0].children
+    kinds = [c.kind for c in kids]
+    assert "horizontal_rule" in kinds
+
+
 def test_parses_block_quote():
     src = dedent("""\
         ---

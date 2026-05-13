@@ -19,8 +19,10 @@ from fpdf.enums import XPos, YPos
 from ..doc import (
     BlockQuote,
     BulletList,
+    CodeBlock,
     Document,
     Emphasis,
+    HorizontalRule,
     InlineCode,
     Link,
     ListItem,
@@ -254,10 +256,44 @@ class _FPDFRenderer:
                 self._render_ordered_list(child, depth=0)
             elif isinstance(child, BlockQuote):
                 self._render_block_quote(child)
+            elif isinstance(child, HorizontalRule):
+                self._render_horizontal_rule()
+            elif isinstance(child, CodeBlock):
+                self._render_code_block(child)
             else:
                 raise NotImplementedError(
                     f"Block {type(child).__name__} not supported in v0.2."
                 )
+
+    def _render_horizontal_rule(self) -> None:
+        pdf = self.pdf
+        pdf.ln(self.body_pt * 0.4)
+        y = pdf.get_y()
+        pdf.set_draw_color(180, 180, 180)
+        pdf.set_line_width(0.3)
+        pdf.line(pdf.l_margin, y, pdf.w - pdf.r_margin, y)
+        pdf.ln(self.body_pt * 0.6)
+
+    def _render_code_block(self, cb: "CodeBlock") -> None:
+        pdf = self.pdf
+        pdf.ln(self.body_pt * 0.2)
+        size = self.body_pt * 0.85
+        line_h = size * 0.55
+        lines = cb.text.rstrip("\n").split("\n") or [""]
+        y_start = pdf.get_y()
+        height = line_h * len(lines) + line_h * 0.6
+        pdf.set_fill_color(245, 245, 245)
+        pdf.rect(
+            pdf.l_margin, y_start,
+            pdf.w - pdf.l_margin - pdf.r_margin, height, "F",
+        )
+        pdf.set_xy(pdf.l_margin + 2, y_start + line_h * 0.3)
+        pdf.set_font(self.mono_family, size=size)
+        for line in lines:
+            pdf.cell(0, line_h, line, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.set_x(pdf.l_margin + 2)
+        pdf.ln(line_h * 0.4)
+        pdf.set_font(self.body_family, size=self.body_pt)
 
     def _render_block_quote(self, bq: "BlockQuote") -> None:
         pdf = self.pdf

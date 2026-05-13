@@ -9,8 +9,10 @@ from .config import DocConfig
 from .doc import (
     BlockQuote,
     BulletList,
+    CodeBlock,
     Document,
     Emphasis,
+    HorizontalRule,
     InlineCode,
     Link,
     ListItem,
@@ -123,6 +125,28 @@ def _parse_blocks(tokens: list) -> list:
                 )
             section_stack[-1].children.append(bq)
             i = end_i + 1
+            continue
+        if t.type == "hr":
+            if not section_stack:
+                raise NotImplementedError("HR outside a heading.")
+            section_stack[-1].children.append(HorizontalRule())
+            i += 1
+            continue
+        if t.type == "fence":
+            if not section_stack:
+                raise NotImplementedError("Code block outside a heading.")
+            section_stack[-1].children.append(
+                CodeBlock(text=t.content, language=(t.info or "").strip())
+            )
+            i += 1
+            continue
+        if t.type == "code_block":
+            if not section_stack:
+                raise NotImplementedError("Code block outside a heading.")
+            section_stack[-1].children.append(
+                CodeBlock(text=t.content, language="")
+            )
+            i += 1
             continue
         raise NotImplementedError(
             f"Markdown construct '{t.type}' is not supported in pliego v0.2. "

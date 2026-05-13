@@ -45,6 +45,44 @@ def test_render_has_two_pages():
     assert len(reader.pages) >= 2
 
 
+def test_render_code_block():
+    from pliego.config import DocConfig
+    from pliego.doc import (
+        CodeBlock, Document, Section, Text,
+    )
+    cfg = DocConfig.from_frontmatter({"title": "x", "date": "2026-05-13"})
+    doc = Document(config=cfg, children=[
+        Section(level=1, title=[Text(text="H")], children=[
+            CodeBlock(text="def hello():\n    return 42\n", language="python"),
+        ]),
+    ])
+    pdf_bytes = render_pdf(doc)
+    reader = pypdf.PdfReader(io.BytesIO(bytes(pdf_bytes)))
+    text = _ws("\n".join(p.extract_text() for p in reader.pages))
+    assert "def hello():" in text
+    assert "return 42" in text
+
+
+def test_render_horizontal_rule_does_not_crash():
+    from pliego.config import DocConfig
+    from pliego.doc import (
+        Document, HorizontalRule, Paragraph, Section, Text,
+    )
+    cfg = DocConfig.from_frontmatter({"title": "x", "date": "2026-05-13"})
+    doc = Document(config=cfg, children=[
+        Section(level=1, title=[Text(text="H")], children=[
+            Paragraph(children=[Text(text="Antes.")]),
+            HorizontalRule(),
+            Paragraph(children=[Text(text="Después.")]),
+        ]),
+    ])
+    pdf_bytes = render_pdf(doc)
+    reader = pypdf.PdfReader(io.BytesIO(bytes(pdf_bytes)))
+    text = _ws("\n".join(p.extract_text() for p in reader.pages))
+    assert "Antes." in text
+    assert "Después." in text
+
+
 def test_render_block_quote():
     from pliego.config import DocConfig
     from pliego.doc import (
