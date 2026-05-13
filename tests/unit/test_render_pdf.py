@@ -46,6 +46,44 @@ def test_render_has_two_pages():
     assert len(reader.pages) >= 2
 
 
+def test_render_toc_when_enabled():
+    cfg = DocConfig.from_frontmatter({
+        "title": "Doc",
+        "date": "2026-05-13",
+        "lang": "es",
+        "pliego": {"toc": True, "toc-depth": 2, "section-numbering": "1.1"},
+    })
+    h2 = Section(level=2, title=[Text(text="Contexto")], children=[
+        Paragraph(children=[Text(text="P.")]),
+    ])
+    h1 = Section(level=1, title=[Text(text="Introducción")], children=[
+        Paragraph(children=[Text(text="P.")]),
+        h2,
+    ])
+    doc = Document(config=cfg, children=[h1])
+    pdf_bytes = render_pdf(doc)
+    reader = pypdf.PdfReader(io.BytesIO(bytes(pdf_bytes)))
+    assert len(reader.pages) >= 3
+    full_text = _ws("\n".join(p.extract_text() for p in reader.pages))
+    assert "Índice" in full_text
+    assert "Introducción" in full_text
+    assert "Contexto" in full_text
+
+
+def test_render_no_toc_by_default():
+    cfg = DocConfig.from_frontmatter({"title": "x", "date": "2026-05-13"})
+    doc = Document(config=cfg, children=[
+        Section(level=1, title=[Text(text="H")], children=[
+            Paragraph(children=[Text(text="P.")]),
+        ]),
+    ])
+    pdf_bytes = render_pdf(doc)
+    reader = pypdf.PdfReader(io.BytesIO(bytes(pdf_bytes)))
+    full_text = _ws("\n".join(p.extract_text() for p in reader.pages))
+    assert "Índice" not in full_text
+    assert "Contents" not in full_text
+
+
 def test_render_includes_page_numbers_in_body_not_cover():
     cfg = DocConfig.from_frontmatter({
         "title": "Doc",

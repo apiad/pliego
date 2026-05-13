@@ -221,8 +221,36 @@ class _FPDFRenderer:
 
     def build(self) -> bytes:
         self._render_cover()
+        if self.doc.config.pliego.toc:
+            self.pdf.add_page()
+            self.pdf.insert_toc_placeholder(
+                self._render_toc, pages=1, allow_extra_pages=True,
+            )
         self._render_body()
         return bytes(self.pdf.output())
+
+    def _render_toc(self, pdf, outline) -> None:
+        """fpdf2 callback: invoked on the 2nd output pass with page numbers
+        for each registered start_section() entry."""
+        lang = self.doc.config.lang
+        max_depth = self.doc.config.pliego.toc_depth
+        header = "Índice" if lang.startswith("es") else "Contents"
+        pdf.set_font(self.body_family, style="B", size=self.body_pt * 1.6)
+        pdf.cell(0, 10, header, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.ln(4)
+        pdf.set_font(self.body_family, size=self.body_pt)
+        for section in outline:
+            # outline.level is 0-indexed; heading level = level + 1
+            if section.level + 1 > max_depth:
+                continue
+            indent = "  " * section.level
+            label = f"{indent}{section.name}"
+            body_w = pdf.epw
+            pdf.cell(body_w * 0.85, 6, label)
+            pdf.cell(
+                body_w * 0.15, 6, str(section.page_number),
+                align="R", new_x=XPos.LMARGIN, new_y=YPos.NEXT,
+            )
 
     # -- Cover -----------------------------------------------------------
 
@@ -265,11 +293,14 @@ class _FPDFRenderer:
         pdf = self.pdf
         if section.level == 1:
             pdf.add_page()
-        size = self.body_pt * (2.2 - 0.2 * section.level)
-        pdf.set_font(self.body_family, style="B", size=size)
         title_text = self._inline_text_only_list(section.title)
         number = self.numbering.get(id(section))
         full_title = f"{number}. {title_text}" if number else title_text
+        # Register for ToC + PDF outline. fpdf2's start_section level is
+        # 0-indexed (h1 -> 0). Cheap to call even when toc is off.
+        pdf.start_section(full_title, level=section.level - 1)
+        size = self.body_pt * (2.2 - 0.2 * section.level)
+        pdf.set_font(self.body_family, style="B", size=size)
         pdf.multi_cell(
             0, 10, full_title,
             new_x=XPos.LMARGIN, new_y=YPos.NEXT,
