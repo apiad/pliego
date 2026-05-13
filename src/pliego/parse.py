@@ -13,6 +13,7 @@ from .doc import (
     InlineCode,
     Link,
     ListItem,
+    OrderedList,
     Paragraph,
     Section,
     Strong,
@@ -97,6 +98,20 @@ def _parse_blocks(tokens: list) -> list:
             section_stack[-1].children.append(bl)
             i = end_i + 1
             continue
+        if t.type == "ordered_list_open":
+            start = 1
+            for k, v in (t.attrs or {}).items():
+                if k == "start":
+                    start = int(v)
+            end_i, items = _parse_list_items(tokens, i + 1)
+            ol = OrderedList(items=items, start=start)
+            if not section_stack:
+                raise NotImplementedError(
+                    "Lists outside a heading are not supported in pliego v0.2."
+                )
+            section_stack[-1].children.append(ol)
+            i = end_i + 1
+            continue
         raise NotImplementedError(
             f"Markdown construct '{t.type}' is not supported in pliego v0.2. "
             "See the roadmap in the design doc."
@@ -152,6 +167,11 @@ def _parse_item_blocks(tokens: list) -> list:
         if t.type == "bullet_list_open":
             end_i, items = _parse_list_items(tokens, i + 1)
             out.append(BulletList(items=items))
+            i = end_i + 1
+            continue
+        if t.type == "ordered_list_open":
+            end_i, items = _parse_list_items(tokens, i + 1)
+            out.append(OrderedList(items=items))
             i = end_i + 1
             continue
         i += 1

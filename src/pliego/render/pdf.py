@@ -23,6 +23,7 @@ from ..doc import (
     InlineCode,
     Link,
     ListItem,
+    OrderedList,
     Paragraph,
     Section,
     Strong,
@@ -248,21 +249,34 @@ class _FPDFRenderer:
                 self._render_section(child)
             elif isinstance(child, BulletList):
                 self._render_bullet_list(child, depth=0)
+            elif isinstance(child, OrderedList):
+                self._render_ordered_list(child, depth=0)
             else:
                 raise NotImplementedError(
                     f"Block {type(child).__name__} not supported in v0.2."
                 )
 
     def _render_bullet_list(self, lst: "BulletList", depth: int = 0) -> None:
+        self._render_list_generic(lst.items, depth, marker=lambda i: "•",
+                                  marker_w=4)
+
+    def _render_ordered_list(self, lst: "OrderedList", depth: int = 0) -> None:
+        start = lst.start
+        self._render_list_generic(
+            lst.items, depth,
+            marker=lambda i: f"{start + i}.",
+            marker_w=6,
+        )
+
+    def _render_list_generic(self, items, depth, marker, marker_w) -> None:
         pdf = self.pdf
         indent_mm = 6 * (depth + 1)
         original_l_margin = pdf.l_margin
-        for item in lst.items:
-            # Bullet + indent
+        for i, item in enumerate(items):
             pdf.set_left_margin(original_l_margin)
-            pdf.set_x(original_l_margin + indent_mm - 4)
+            pdf.set_x(original_l_margin + indent_mm - marker_w)
             pdf.set_font(self.body_family, size=self.body_pt)
-            pdf.cell(4, self.body_pt * 0.5, "•")
+            pdf.cell(marker_w, self.body_pt * 0.5, marker(i))
             pdf.set_left_margin(original_l_margin + indent_mm)
             pdf.set_x(original_l_margin + indent_mm)
             for child in item.children:
@@ -271,6 +285,8 @@ class _FPDFRenderer:
                     pdf.ln(self.body_pt * 0.6)
                 elif isinstance(child, BulletList):
                     self._render_bullet_list(child, depth + 1)
+                elif isinstance(child, OrderedList):
+                    self._render_ordered_list(child, depth + 1)
         pdf.set_left_margin(original_l_margin)
         pdf.set_x(original_l_margin)
 

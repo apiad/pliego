@@ -100,6 +100,26 @@ def test_parses_bulleted_list():
     assert bl.items[0].children[0].children[0].text == "one"
 
 
+def test_parses_ordered_list():
+    src = dedent("""\
+        ---
+        title: x
+        date: 2026-05-13
+        ---
+
+        # H
+
+        1. one
+        2. two
+        3. three
+    """)
+    doc = parse(src)
+    ol = doc.children[0].children[0]
+    assert ol.kind == "ordered_list"
+    assert len(ol.items) == 3
+    assert ol.items[1].children[0].children[0].text == "two"
+
+
 def test_parses_nested_bulleted_list():
     src = dedent("""\
         ---
