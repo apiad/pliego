@@ -46,8 +46,15 @@ class InlineCode(BaseModel):
     text: str
 
 
+class Image(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["image"] = "image"
+    src: str
+    alt: str = ""
+
+
 Inline = Annotated[
-    Union[Text, Strong, Emphasis, Link, InlineCode],
+    Union[Text, Strong, Emphasis, Link, InlineCode, Image],
     Field(discriminator="kind"),
 ]
 
@@ -117,6 +124,13 @@ class Table(BaseModel):
     body: list[TableRow]
 
 
+class Figure(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["figure"] = "figure"
+    src: str
+    alt: str = ""
+
+
 Block = Annotated[
     Union[
         "Section",
@@ -127,6 +141,7 @@ Block = Annotated[
         HorizontalRule,
         CodeBlock,
         Table,
+        Figure,
     ],
     Field(discriminator="kind"),
 ]

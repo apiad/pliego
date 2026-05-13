@@ -22,7 +22,9 @@ from ..doc import (
     CodeBlock,
     Document,
     Emphasis,
+    Figure,
     HorizontalRule,
+    Image,
     InlineCode,
     Link,
     ListItem,
@@ -265,10 +267,35 @@ class _FPDFRenderer:
                 self._render_code_block(child)
             elif isinstance(child, Table):
                 self._render_table(child)
+            elif isinstance(child, Figure):
+                self._render_figure(child)
             else:
                 raise NotImplementedError(
                     f"Block {type(child).__name__} not supported in v0.3."
                 )
+
+    def _render_figure(self, fig: "Figure") -> None:
+        pdf = self.pdf
+        pdf.ln(self.body_pt * 0.4)
+        body_w = pdf.w - pdf.l_margin - pdf.r_margin
+        img_w = body_w * 0.6
+        x = pdf.l_margin + (body_w - img_w) / 2
+        try:
+            pdf.image(fig.src, x=x, w=img_w)
+        except Exception:
+            y = pdf.get_y()
+            pdf.set_draw_color(180, 180, 180)
+            pdf.rect(x, y, img_w, 30, "D")
+            pdf.set_xy(x, y + 12)
+            pdf.set_font(self.body_family, style="I", size=self.body_pt * 0.9)
+            pdf.cell(img_w, 6, f"[no se pudo cargar: {fig.src}]", align="C")
+            pdf.set_y(y + 30)
+        if fig.alt:
+            pdf.ln(2)
+            pdf.set_font(self.body_family, style="I", size=self.body_pt * 0.9)
+            pdf.cell(0, 6, fig.alt, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+        pdf.ln(self.body_pt * 0.4)
+        pdf.set_font(self.body_family, size=self.body_pt)
 
     def _render_table(self, table: "Table") -> None:
         pdf = self.pdf
@@ -412,6 +439,9 @@ class _FPDFRenderer:
             elif isinstance(inline, InlineCode):
                 pdf.set_font(self.mono_family, style="", size=size * 0.9)
                 pdf.write(line_h, inline.text)
+            elif isinstance(inline, Image):
+                pdf.set_font(self.body_family, style="I", size=size)
+                pdf.write(line_h, f"[{inline.alt or 'image'}]")
             else:
                 raise NotImplementedError(
                     f"Inline {type(inline).__name__} not supported in v0.2."
@@ -423,6 +453,8 @@ class _FPDFRenderer:
         """Flatten an inline node to plain text (no formatting)."""
         if isinstance(inline, (Text, InlineCode)):
             return inline.text
+        if isinstance(inline, Image):
+            return inline.alt
         if hasattr(inline, "children"):
             return "".join(self._inline_text_only(c) for c in inline.children)
         return ""

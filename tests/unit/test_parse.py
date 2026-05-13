@@ -1,4 +1,5 @@
 """Parser — markdown source → IR."""
+from pathlib import Path
 from textwrap import dedent
 
 import pytest
@@ -98,6 +99,45 @@ def test_parses_bulleted_list():
     assert bl.kind == "bullet_list"
     assert len(bl.items) == 3
     assert bl.items[0].children[0].children[0].text == "one"
+
+
+def test_parses_image_as_figure():
+    """A paragraph containing only an image becomes a Figure."""
+    img_src = Path(__file__).parent / "fixtures" / "sample.png"
+    src = dedent(f"""\
+        ---
+        title: x
+        date: 2026-05-13
+        ---
+
+        # H
+
+        ![Caption text]({img_src.resolve()})
+    """)
+    doc = parse(src)
+    fig = doc.children[0].children[0]
+    assert fig.kind == "figure"
+    assert fig.src == str(img_src.resolve())
+    assert fig.alt == "Caption text"
+
+
+def test_parses_image_inside_paragraph_stays_inline():
+    """An image mixed with other inline content stays inline."""
+    src = dedent("""\
+        ---
+        title: x
+        date: 2026-05-13
+        ---
+
+        # H
+
+        See ![alt](/tmp/x.png) here.
+    """)
+    doc = parse(src)
+    para = doc.children[0].children[0]
+    assert para.kind == "paragraph"
+    kinds = [c.kind for c in para.children]
+    assert "image" in kinds
 
 
 def test_parses_gfm_table():

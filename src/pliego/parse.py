@@ -12,7 +12,9 @@ from .doc import (
     CodeBlock,
     Document,
     Emphasis,
+    Figure,
     HorizontalRule,
+    Image,
     InlineCode,
     Link,
     ListItem,
@@ -87,6 +89,18 @@ def _parse_blocks(tokens: list) -> list:
         if t.type == "paragraph_open":
             inline_token = tokens[i + 1]
             children = _parse_inline(inline_token)
+            # Promote a paragraph that is just one Image to a Figure
+            if len(children) == 1 and isinstance(children[0], Image):
+                img = children[0]
+                if not section_stack:
+                    raise NotImplementedError(
+                        "Figures outside a heading are not supported in pliego v0.3."
+                    )
+                section_stack[-1].children.append(
+                    Figure(src=img.src, alt=img.alt)
+                )
+                i += 3
+                continue
             para = Paragraph(children=children)
             if not section_stack:
                 raise NotImplementedError(
@@ -338,6 +352,14 @@ def _parse_inline(inline_token) -> list:
             current = parent
         elif t == "code_inline":
             current.append(InlineCode(text=child.content))
+        elif t == "image":
+            src = ""
+            for k, v in (child.attrs or {}).items():
+                if k == "src":
+                    src = v
+            # markdown-it-py flattens the alt-text content into child.content
+            alt = child.content or ""
+            current.append(Image(src=src, alt=alt))
         elif t == "softbreak":
             current.append(Text(text=" "))
         else:
