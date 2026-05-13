@@ -81,6 +81,59 @@ def _pt(value: str) -> float:
 
 
 # ---------------------------------------------------------------------------
+# Section numbering
+# ---------------------------------------------------------------------------
+
+
+def _format_segment(n: int, kind: str) -> str:
+    """Format a counter per a section-numbering segment.
+
+    v0.2 supports '1' (arabic) and 'a' (lowercase alpha, base-26 wrap to 'aa').
+    Other segment kinds fall through to arabic for now.
+    """
+    if kind == "a":
+        out = ""
+        n0 = n - 1
+        while True:
+            out = chr(ord("a") + n0 % 26) + out
+            n0 = n0 // 26 - 1
+            if n0 < 0:
+                break
+        return out
+    return str(n)
+
+
+def _compute_numbering(section_tree: list, format_str: str) -> dict[int, str]:
+    """Walk the section tree; return ``{id(section): "1.1.a"}``.
+
+    Empty ``format_str`` disables numbering.
+    """
+    if not format_str:
+        return {}
+    segments = format_str.split(".")
+    out: dict[int, str] = {}
+
+    def walk(sections: list, counters: list[int]) -> None:
+        n = 0
+        for s in sections:
+            if not hasattr(s, "level"):
+                continue
+            n += 1
+            new_counters = counters + [n]
+            parts = []
+            for i, c in enumerate(new_counters):
+                seg_kind = segments[i] if i < len(segments) else "1"
+                parts.append(_format_segment(c, seg_kind))
+            out[id(s)] = ".".join(parts)
+            sub_sections = [c for c in s.children if hasattr(c, "level")]
+            if sub_sections:
+                walk(s.children, new_counters)
+
+    walk(section_tree, [])
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Renderer
 # ---------------------------------------------------------------------------
 
@@ -98,6 +151,9 @@ class _FPDFRenderer:
         self.pdf.set_margins(left=margin_x, top=margin_y, right=margin_x)
         self.pdf.set_auto_page_break(auto=True, margin=margin_y)
         self._setup_fonts()
+        self.numbering = _compute_numbering(
+            doc.children, cfg.pliego.section_numbering
+        )
 
     def _setup_fonts(self) -> None:
         font_dir = _find_dejavu()
@@ -175,8 +231,10 @@ class _FPDFRenderer:
         size = self.body_pt * (2.2 - 0.2 * section.level)
         pdf.set_font(self.body_family, style="B", size=size)
         title_text = self._inline_text_only_list(section.title)
+        number = self.numbering.get(id(section))
+        full_title = f"{number}. {title_text}" if number else title_text
         pdf.multi_cell(
-            0, 10, title_text,
+            0, 10, full_title,
             new_x=XPos.LMARGIN, new_y=YPos.NEXT,
         )
         pdf.ln(2)

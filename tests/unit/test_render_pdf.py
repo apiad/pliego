@@ -45,6 +45,47 @@ def test_render_has_two_pages():
     assert len(reader.pages) >= 2
 
 
+def test_section_numbering_arabic_arabic_alpha():
+    from pliego.config import DocConfig
+    from pliego.doc import Document, Paragraph, Section, Text
+    cfg = DocConfig.from_frontmatter({
+        "title": "x",
+        "date": "2026-05-13",
+        "pliego": {"section-numbering": "1.1.a"},
+    })
+    h3 = Section(level=3, title=[Text(text="Sub")], children=[
+        Paragraph(children=[Text(text="P.")]),
+    ])
+    h2 = Section(level=2, title=[Text(text="Inner")], children=[h3])
+    h1 = Section(level=1, title=[Text(text="Outer")], children=[h2])
+    doc = Document(config=cfg, children=[h1])
+    pdf_bytes = render_pdf(doc)
+    reader = pypdf.PdfReader(io.BytesIO(bytes(pdf_bytes)))
+    text = _ws("\n".join(p.extract_text() for p in reader.pages))
+    assert "1. Outer" in text
+    assert "1.1. Inner" in text
+    assert "1.1.a. Sub" in text
+
+
+def test_section_numbering_disabled_when_empty_format():
+    from pliego.config import DocConfig
+    from pliego.doc import Document, Paragraph, Section, Text
+    cfg = DocConfig.from_frontmatter({
+        "title": "x",
+        "date": "2026-05-13",
+        "pliego": {"section-numbering": ""},
+    })
+    h1 = Section(level=1, title=[Text(text="Plain")], children=[
+        Paragraph(children=[Text(text="P.")]),
+    ])
+    doc = Document(config=cfg, children=[h1])
+    pdf_bytes = render_pdf(doc)
+    reader = pypdf.PdfReader(io.BytesIO(bytes(pdf_bytes)))
+    text = _ws("\n".join(p.extract_text() for p in reader.pages))
+    assert "Plain" in text
+    assert "1. Plain" not in text
+
+
 def test_render_nested_sections_no_extra_page_breaks():
     """Only h1 starts a new page; h2/h3 flow inline."""
     from pliego.config import DocConfig
